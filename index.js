@@ -69,6 +69,8 @@ module.exports = {
       configure() {
         this._super();
         this._addDebug('Checking that git working directory is clean...');
+
+        [ 'revisionKey', 'didDeployMessage'].forEach(this.applyDefaultConfigProperty.bind(this));
         return new Promise(function (resolve, reject) {
           childProcess.exec('git diff-index --quiet HEAD --', function (err) {
             if (err) {
@@ -85,6 +87,25 @@ module.exports = {
           return Promise.reject(
             'You must include `ember-cli-deploy-revision-data` plugin for `' + options.name + '` to work.'
           );
+        }
+      },
+      didDeployMessage: function(context){
+        var revisionKey = context.revisionData && context.revisionData.revisionKey;
+        var activatedRevisionKey = context.revisionData && context.revisionData.activatedRevisionKey;
+        if (revisionKey && !activatedRevisionKey) {
+          return "Deployed but did not activate revision " + revisionKey + ". "
+            + "To activate, run: "
+            + "ember deploy:activate " + context.deployTarget + " --revision=" + revisionKey + "\n";
+        }
+      },
+
+      revisionKey: function(context) {
+        return context.commandOptions.revision || (context.revisionData && context.revisionData.revisionKey);
+      },
+      didDeploy: function (/* context */) {
+        var didDeployMessage = this.readConfig('didDeployMessage');
+        if (didDeployMessage) {
+          this._addInfo(didDeployMessage);
         }
       },
 
@@ -286,6 +307,11 @@ module.exports = {
         });
       },
 
+      activate(context) {
+        let revisionKey = this.revisionKey(context);
+        return this._activateRevision(revisionKey);
+      },
+
       upload(context) {
         const plugin = this;
         const config = this._config();
@@ -317,7 +343,6 @@ module.exports = {
                 config.sourcePath + '/',
                 config.userAtHost + ':' + revPath + '/'
               ),
-              plugin._activateRevision(rev.revisionKey),
               plugin._uploadRevisionsFile(revisions),
             ]);
           });
