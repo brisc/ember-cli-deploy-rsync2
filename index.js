@@ -123,7 +123,9 @@ module.exports = {
         return this._grabRevisionsList()
           .then(function (revisions) {
             return {
-              revisions: revisions
+              revisions: revisions.sort(function(a,b){
+                return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+              })
             };
           });
       },
